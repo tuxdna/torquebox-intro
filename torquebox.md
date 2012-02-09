@@ -1,12 +1,12 @@
-![](logo.png)
-![](knob.png)
+#Presenting...
 
----
-#TorqueBox
+![logo](logo.png)
+![knob](knob.png)
 
-##Saleem Ansari
-###sansari@redhat.com
-###@tuxdna
+#Saleem Ansari
+    twitter: tuxdna
+
+#10th February, 2012 at GNUnify
 
 ---
 ## Outline
@@ -27,15 +27,16 @@
 
 ---
 #What is TorqueBox?
+## Before that lets talk about Polyglot Revolution
 
-.notes: Before moving onto TorqueBox, let me first introduce you to the Polyglot Revolution. As a matter of fact, you would realize later that TorqueBox is a part of Polyglot Revolution itself. As of today there are many programming languages whose compilers or interpreters target JVM as their target. Those languages include JRuby, Jython, Scala, Erlang ( Erlang on JVM ), and many more. Many of these languages are dynamically typed languages ( or dynamic languages ).
+.notes: Before moving onto TorqueBox, let me first introduce you to the Polyglot Revolution. TorqueBox is a part of Polyglot Revolution itself as we will se later. Today there are many programming languages whose compilers or interpreters target the JVM. Those languages include JRuby, Jython, Scala, Erlang ( Erlang on JVM ), and many more. Many of these languages are dynamically typed languages ( or dynamic languages ).
 
 ---
 #Polyglot Revolution
 
-.notes: What does this enable us to do? Well, basically it enables you to write a program in any of the JVM languages, which gets compiled to Java byte-codes. So, whenever your program written in one JVM language executes, it can also execute the bytecodes generated for any other JVM targeted language. As simple it sounds, it is a very powerful feature because you can now use all your Java code that was written and tested over the years from any other JVM language.
+.notes: What does this enable us to do? Well, basically it enables you to write a program in any of the JVM languages, which gets compiled to Java byte-codes. So, whenever your program written in one JVM language executes, it can also execute the bytecodes generated for any other JVM targeted language. As simple it sounds, it is a very powerful feature because you can now use all your Java code that was written and tested over the years.
 
-## JVM - This is what makes Polyglot Revolution.
+## JVM is what makes the Polyglot Revolution.
 
 ---
 #Polyglot Revolution cont.
@@ -134,31 +135,146 @@
 
 ---
 
-#Feature: Messaging
-##Messaging:
+#Feature: Messaging (via HornetQ JMS)
+
+##Sending Messages:
+
+    !ruby
+    timer_queue = TorqueBox::Messaging::Queue.new('/queues/timer')
+    timer_queue.publish "Some Message"
+    topic1 = TorqueBox::Messaging::Topic.new('/topics/topic1')
+    topic1.publish "Some Topic"
+
+##Processing Messages:
+
 ###Create a Message class
-###Add que to config/torquebox.yml
+
+    !ruby
+    include TorqueBox::Messaging
+    class MyMessageHandler < MessageProcessor
+      def on_message(body)
+        # process the message
+      end
+    end
+
+###Add queue/topic to config/torquebox.yml
+
+    !yaml
+    queues:
+      /queues/timer:
+    topics:
+      /topics/topic1:
+
+    messaging:
+      /queues/timer:
+        MyMessageHandler:
+          concurrency: 5
+      /topics/topic1:
+        Topic1Handler
 
 ---
 
 #Feature: Jobs
 ##Jobs ( Backgroundable ):
 ###include TorqueBox::Messaging::Backgroundable to any Ruby class
+    !ruby
+    class LuceneIndexJob
+      include TorqueBox::Messaging::Backgroundable
+      def do_index
+        # very long running job
+      end
+    end
 ###get the future ( optionally store it in a serialized format somewhere )
- 
+    !ruby
+    indexer = LuceneIndexJob.new
+    future = indexer.background.do_index
+    future.started?
+    future.complete?
+    future.error?
+    future.status
+    # store future object for later retrieval ( maybe in database )
+
 ---
 #Feature: Jobs contd.
 
 ##Scheduled Jobs:
 ###Create a class with run() method
+    !ruby
+    class MonthlyBirthdayEmailer
+      def run
+        # some long task here
+      end
+    end
+
+
 ###Add entry on config/torquebox.yml with crontab(5) like time specification
+
+    !yaml
+    jobs:
+      monthly_birthday_notifications:
+        description: first of month
+        job: MonthlyBirthdayEmailer
+        cron: '0 0 0 1 * ?'
 
 ---
 
 #Feature: Caching
 ##Caching ( via Infinispan ):
 ###Add gem 'torquebox-cache' to Gemfile
+    !ruby
+    gem 'torquebox-cache'
+
 ###update application.rb to use torquebox cache
+    !ruby
+    class Application < Rails::Application
+      config.cache_store = :torque_box_store
+    end
+
+###access the cache
+    !ruby
+    require 'torquebox-cache'
+    cache = TorqueBox::Infinispan::Cache.new( :name => 'treasure',
+      :persist=>'/data/treasure' )
+    # Put some stuff in the cache
+    cache.put('akey', "a string value" )
+    cache.put("time", Time.now )
+    cache.put(user.id, user )
+    # Get it back again
+    time = cache.get( "time" )
+    user = cache.get( params[:id] )
+
+---
+
+#Feature: Services
+##Crete a class with initialize, start and stop methods
+
+     !ruby
+     class TimeService
+       def initialize(opts)
+         puts "Queue Name: #{opts['queue']}"
+         @queue=TorqueBox::Messaging::Queue.new(opts['queue'])
+       end
+       def start
+         Thread.new{run}
+       end
+       def stop
+         @done=true
+       end
+       def run
+         until @done
+           @queue.publish(Time.now)
+           sleep(1)
+         end
+       end
+     end
+
+###Add service to application configuration file
+
+    !yaml
+    services:
+      TimeMachine:
+        config:
+          queue: /queue/time
 
 ---
 
@@ -175,29 +291,67 @@
     mark the service as singleon: true in the configuration file
 ---
 #Hacking TorqueBox
-##jboss-polyglot
+
+![block_diagram](TorqueBox-block-diagram.png)
+
+---
+#Hacking TorqueBox contd.
+
+##JBoss-Polyglot
     github.com/projectodd/jboss-polyglot
 ##TorqueBox
     github.com/torquebox/torquebox
+
 ---
 #Summary
-##JRuby gotchas:
-###Pros
-    Can invoke Java
-    Does Real Threading
-    FFI support
-###Cons
-    Native C extensions written for MRI Ruby dont work
 
-##TorqueBox gotchas:
-    Native gems are not supported, except FFI.
-    TorqueBox gives you real threads but
-     many existing Ruby libraries suck with multi threading.
+## Built on Ruby / JRuby, TorqueBox is well suited for rapid application development in the settings where Enterprise Java Applications are already in place.
+## TorqueBox Provides these features out of the box, without any hassle:
+###Messaging, Jobs, Caching, Services and Clustering
+
+##TorqueBox / JRuby gotchas:
+###TorqueBox gives you real threads but many existing Ruby libraries suck with multi threading.
+###Can invoke Java
+###Does Real Threading
+###FFI support
+###Native C extensions written for MRI Ruby dont work
+###Native gems are not supported, except FFI.
 
 ---
+
+#Questions?
+
+---
+
+#Thanks
+
+---
+
 #References
 
----
-#Questions?
----
-#Thanks
+[When Two Worlds Collide: Java and Ruby in the Enterprise talk](http://vimeo.com/36307514)
+[Presentation](http://www.slideshare.net/benbrowning/when-two-worlds-collide-java-and-ruby-in-the-enterprise)
+[TorqueBox](http://torquebox.org/)
+[Immutant](http://immutant.org/)
+[JBoss Blacktie](http://www.jboss.org/blacktie)
+[Erjang](https://github.com/trifork/erjang/wiki)
+[TypeSafe: The Polyglot Revolution continues apace](http://www.redmonk.com/jgovernor/2011/05/12/typesafe-the-polyglot-revolution-continues-apace/)
+[Scala the statically typed dynamic language](http://www.scala-blogs.org/2007/12/scala-statically-typed-dynamic-language.html)
+[Calling Java from JRuby](https://github.com/jruby/jruby/wiki/CallingJavaFromJRuby)
+[ActiveRecord-JDBC Database Support](http://kenai.com/projects/jruby/pages/ActiveRecord-JDBC)
+[Using RVM with TorqueBox](http://torquebox.org/news/2011/02/25/using-rvm-with-torquebox/)
+[Cuvic On Demand](https://cuvicondemand.com/)
+[JRuby vs Ruby](http://stackoverflow.com/questions/1728999/whats-the-difference-between-ruby-and-jruby)
+[Installing TorqueBox 2.0](http://vimeo.com/33299335)
+[Rails on TorqueBox](http://vimeo.com/33417394)
+[Sinatra on TorqueBox](http://vimeo.com/33977278)
+[Long Running Services in TorqueBox](http://vimeo.com/34049944)
+[Latency / Throughput](http://torquebox.org/news/2011/10/06/torquebox-2x-performance/)
+[CPU / Memory](http://torquebox.org/news/2011/10/06/torquebox-2x-performance/)
+[JVM Languages](http://en.wikipedia.org/wiki/List_of_JVM_languages)
+[JVM](http://en.wikipedia.org/wiki/Java_Virtual_Machine)
+[Understand RVM](https://rvm.beginrescueend.com/)
+[Install RVM on Fedora](http://siliconchaos.com/2011/07/installing-rails-with-rvm/)
+[JRuby on Rails with RVM ( on Fedora )](http://tuxdna.wordpress.com/2012/01/29/jruby-on-rails-with-rvm-fedora/)
+[Quartz - CronTrigger Tutorial](http://www.quartz-scheduler.org/documentation/quartz-1.x/tutorials/crontrigger)
+
