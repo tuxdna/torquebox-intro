@@ -29,7 +29,7 @@
 #What is TorqueBox?
 ## Before that lets talk about Polyglot Revolution
 
-.notes: Before moving onto TorqueBox, let me first introduce you to the Polyglot Revolution. TorqueBox is a part of Polyglot Revolution itself as we will se later. Today there are many programming languages whose compilers or interpreters target the JVM. Those languages include JRuby, Jython, Scala, Erlang ( Erlang on JVM ), and many more. Many of these languages are dynamically typed languages ( or dynamic languages ).
+.notes: Before moving onto TorqueBox, let me first introduce you to the Polyglot Revolution. TorqueBox is a part of Polyglot Revolution itself as we will see later. Today there are many programming languages whose compilers or interpreters target the JVM. Those languages include JRuby, Jython, Scala, Erlang ( Erlang on JVM ), and many more. Many of these languages are dynamically typed languages (or dynamic languages).
 
 ---
 #Polyglot Revolution
@@ -111,7 +111,7 @@
     gem install bundler
 
 ##Some caveats
-###JDBC Drivers for Activercord
+###JDBC Drivers for ActiveRecord
 
     !bash
     gem install activerecord-jdbcsqlite3-adapter
@@ -134,7 +134,6 @@
     torquebox deploy /path/to/rails-app
 
 ---
-
 #Feature: Messaging (via HornetQ JMS)
 
 ##Sending Messages:
@@ -173,7 +172,6 @@
         Topic1Handler
 
 ---
-
 #Feature: Jobs
 ##Jobs ( Backgroundable ):
 ###include TorqueBox::Messaging::Backgroundable to any Ruby class
@@ -217,7 +215,6 @@
         cron: '0 0 0 1 * ?'
 
 ---
-
 #Feature: Caching
 ##Caching ( via Infinispan ):
 ###Add gem 'torquebox-cache' to Gemfile
@@ -244,7 +241,6 @@
     user = cache.get( params[:id] )
 
 ---
-
 #Feature: Services
 ##Crete a class with initialize, start and stop methods
 
@@ -277,7 +273,6 @@
           queue: /queue/time
 
 ---
-
 #Feature: Clustering
 ##Clustering:
 ###torquebox run --clustered
@@ -318,15 +313,14 @@
 ###Native gems are not supported, except FFI.
 
 ---
-
 #Questions?
+IRC: #torquebox on FreeNode
+Web: torquebox.org
 
 ---
-
 #Thanks
 
 ---
-
 #References
 
 [When Two Worlds Collide: Java and Ruby in the Enterprise talk](http://vimeo.com/36307514)
